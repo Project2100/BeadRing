@@ -156,8 +156,8 @@ public class Main {
 				JButton setButton = new JButton("Reset");
 				setButton.addActionListener((evt) -> {
 					for (BeadRing ring : rings) {
-						ring.positionDots(BeadRing.computeRadians(0, ring.dots.length));
-						ring.currentAngle = BeadRing.computeRadians(0, ring.dots.length);
+						ring.positionDots(BeadRing.computeRadians(0, ring.beads.length));
+						ring.currentAngle = BeadRing.computeRadians(0, ring.beads.length);
 					}
 				});
 
@@ -165,7 +165,7 @@ public class Main {
 				solveButton.addActionListener((evt) -> {
 					for (int i = 0; i < rings.size(); i++) {
 						BeadRing ring = rings.get(i);
-						ring.animateRotation(-BeadRing.computeRadians(radix.value * (i != rings.size() - 1 ? eqns.get(i).coefficient : 1), ring.dots.length), 12000, BeadRing.RotationMode.SINE);
+						ring.animateRotation(-BeadRing.computeRadians(radix.value * (i != rings.size() - 1 ? eqns.get(i).coefficient : 1), ring.beads.length), 12000, BeadRing.RotationMode.SINE);
 					}
 				});
 
@@ -216,8 +216,8 @@ public class Main {
 				JButton setButton = new JButton("Reset");
 				setButton.addActionListener((evt) -> {
 					for (BeadRing ring : rings) {
-						ring.positionDots(BeadRing.computeRadians(0, ring.dots.length));
-						ring.currentAngle = BeadRing.computeRadians(0, ring.dots.length);
+						ring.positionDots(BeadRing.computeRadians(0, ring.beads.length));
+						ring.currentAngle = BeadRing.computeRadians(0, ring.beads.length);
 					}
 				});
 
@@ -225,7 +225,7 @@ public class Main {
 				solveButton.addActionListener((evt) -> {
 					for (int i = 0; i < rings.size(); i++) {
 						BeadRing ring = rings.get(i);
-						ring.animateRotation(-BeadRing.computeRadians(radix.value * (i != rings.size() - 1 ? eqns.get(i).coefficient : 1), ring.dots.length), 30000, BeadRing.RotationMode.SINE);
+						ring.animateRotation(-BeadRing.computeRadians(radix.value * (i != rings.size() - 1 ? eqns.get(i).coefficient : 1), ring.beads.length), 30000, BeadRing.RotationMode.SINE);
 					}
 				});
 

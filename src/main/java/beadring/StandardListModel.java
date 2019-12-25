@@ -30,6 +30,9 @@ import java.util.List;
 import javax.swing.AbstractListModel;
 
 /**
+ * A list model enriched with java#util#Iterable capabilities, notably for for-each use
+ *
+ * @implNote Uses an java#util#ArrayList as its underlying data structure
  *
  * @author Project2100
  * @param <E>
@@ -64,6 +67,5 @@ public class StandardListModel<E> extends AbstractListModel<E> implements Iterab
 	public E remove(int index){
 		return delegate.remove(index);
 	}
-
 
 }

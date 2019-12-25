@@ -51,122 +51,7 @@ import javax.swing.LayoutStyle;
  */
 class BeadRing extends JPanel {
 
-	static final Color DEFAULT_BG = new Color(24, 26, 39);
-	static final int EVENT_DELAY = 10;
-
-	Dot[] dots;
-	Color[] colors;
-	Dot bottom;
-	double currentAngle = 0;
-	final double unitAngle;
-
-	// Updated on rezize events
-	int panelx = 300;
-	int panely = 300;
-	int offsetx; //helper
-	int offsety; //helper
-
-	int radiusLength;
-	final int ringborder;
-
-	final int dotRadius;
-
-	public BeadRing(int mod) {
-		this(mod, DEFAULT_BG, 15);
-	}
-
-
-	public BeadRing(int mod, Color background, int border) {
-		super();
-
-		super.setBackground(background);
-		// TODO Rectify
-		if (background.getAlpha() < 255) {
-			super.setOpaque(false);
-		}
-
-		unitAngle = Math.PI * 2 / mod;
-		dotRadius = mod < 100 ? 6 : 4;
-		ringborder = border;
-
-		dots = new Dot[mod];
-		for (int i = 0; i < dots.length; i++) {
-			dots[i] = new Dot();
-			dots[i].radius = dotRadius;
-		}
-		bottom = new Dot();
-		bottom.radius = dotRadius + 3;
-
-
-		colors = new Color[mod];
-		colors[0] = new Color(0);
-		Color ncop = new Color(128, 0, 0), cop = new Color(0, 128, 0);
-		for (int i = 1; i < colors.length; i++)
-			colors[i] = LinearCongruence.gcd(i, mod) == 1 ? cop : ncop;
-
-
-		// Tooltips
-		super.addMouseMotionListener(new MouseMotionAdapter() {
-			@Override
-			public void mouseMoved(MouseEvent e) {
-				for (int i = 0; i < dots.length; i++) {
-					if (dots[i].contains(e.getX(), e.getY())) {
-						BeadRing.super.setToolTipText("" + i);
-						return;
-					}
-				}
-				BeadRing.this.setToolTipText(null);
-			}
-		});
-
-		// Resizer
-		super.addComponentListener(new ComponentAdapter() {
-			@Override
-			public void componentResized(ComponentEvent e) {
-				offsetx = BeadRing.super.getWidth() / 2;
-				offsety = BeadRing.super.getHeight() / 2;
-				radiusLength = Math.min(offsetx, offsety) - ringborder;
-				
-				bottom.cx = offsetx;
-				bottom.cy = offsety + radiusLength;
-				positionDots(currentAngle);
-			}
-		});
-
-		// This fires a resize event, which will both position dots and perform first paint
-		super.setPreferredSize(new Dimension(panelx, panely));
-
-		arcs = new HashMap<>();
-	}
-
-	/**
-	 * Paints the beads over the panel
-	 *
-	 * @param painter
-	 */
-	@Override
-	protected void paintComponent(Graphics painter) {
-		super.paintComponent(painter);
-
-		Graphics2D painter0 = (Graphics2D) painter;
-		// Do it in reverse to bring 0 up to front
-		for (int i = dots.length - 1; i >= 0; i--) {
-			painter0.setColor(colors[i]);
-			painter0.fill(dots[i]);
-		}
-
-		painter0.setColor(Color.gray);
-		painter0.draw(bottom);
-
-		painter0.setColor(Color.blue);
-		for (Map.Entry<Integer, Integer> entry : arcs.entrySet()) {
-			Dot dot1 = dots[entry.getKey()];
-			Dot dot2 = dots[entry.getValue()];
-			painter0.drawLine((int) dot1.cx, (int) dot1.cy, (int) dot2.cx, (int) dot2.cy);
-		}
-	}
-
-	static enum RotationMode {
+	enum RotationMode {
 		LINEAR, SINE
 		// a * E ^ - ( ((x-b)^2) / (2*c^2) )
 		/*
@@ -177,6 +62,164 @@ class BeadRing extends JPanel {
 	}
 
 	/**
+	 * Default background color
+	 */
+	static final Color DEFAULT_BG = new Color(24, 26, 39);
+
+	/**
+	 * Refresh delay for the animations, in milliseconds
+	 */
+	private static final int EVENT_DELAY = 10;
+
+	Bead[] beads;
+	Color[] beadColors;
+	Bead bottom;
+
+	private Map<Integer, Integer> inversionMappings;
+	private boolean visiblePolygon;
+	private boolean visibleRing;
+
+	double currentAngle = 0;
+	private final double unitAngle;
+
+	// Updated on resize events
+	int panelx = 300;
+	int panely = 300;
+	int offsetx; //helper
+	int offsety; //helper
+
+	int radiusLength;
+	final int margin;
+
+	final int beadRadius;
+
+	public BeadRing(int mod) {
+		this(mod, DEFAULT_BG, 15);
+	}
+
+
+	public BeadRing(int mod, Color background, int margin) {
+		super();
+
+		super.setBackground(background);
+		// TODO Rectify
+		if (background.getAlpha() < 255) {
+			super.setOpaque(false);
+		}
+
+		// Compute the angle between two elements of this group
+		unitAngle = Math.PI * 2 / mod;
+
+		// The size of a single bead
+		// AP191225 - TODO: Consider a dynamic bead size w.r.t. group size
+		beadRadius = mod < 100 ? 6 : 4;
+
+		// Rigid margin between ring and panel border
+		this.margin = margin;
+
+		beads = new Bead[mod];
+		for (int i = 0; i < beads.length; i++) {
+			beads[i] = new Bead();
+			beads[i].radius = beadRadius;
+		}
+		bottom = new Bead();
+		bottom.radius = beadRadius + 3;
+
+
+		beadColors = new Color[mod];
+		beadColors[0] = new Color(0);
+		Color cocomposite = new Color(128, 0, 0), coprime = new Color(0, 128, 0);
+		for (int i = 1; i < beadColors.length; i++)
+			beadColors[i] = LinearCongruence.gcd(i, mod) == 1 ? coprime : cocomposite;
+
+
+		// Tooltip handler
+		super.addMouseMotionListener(new MouseMotionAdapter() {
+			@Override
+			public void mouseMoved(MouseEvent e) {
+				for (int i = 0; i < beads.length; i++) {
+					if (beads[i].contains(e.getX(), e.getY())) {
+						BeadRing.super.setToolTipText("" + i);
+						return;
+					}
+				}
+				BeadRing.this.setToolTipText(null);
+			}
+		});
+
+
+		// Ring resize handler
+		super.addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentResized(ComponentEvent e) {
+				offsetx = BeadRing.super.getWidth() / 2;
+				offsety = BeadRing.super.getHeight() / 2;
+				radiusLength = Math.min(offsetx, offsety) - BeadRing.this.margin;
+				
+				bottom.cx = offsetx;
+				bottom.cy = offsety + radiusLength;
+				positionDots(currentAngle);
+			}
+		});
+
+		// This fires a resize event, which will both position dots and perform first paint
+		super.setPreferredSize(new Dimension(panelx, panely));
+
+		inversionMappings = new HashMap<>();
+
+		visiblePolygon = false;
+	}
+
+
+
+	/**
+	 * Paints all the shapes according to the current state
+	 *
+	 * @param painter
+	 */
+	@Override
+	protected void paintComponent(Graphics painter) {
+		super.paintComponent(painter);
+
+		// Paint the beads
+		Graphics2D painter0 = (Graphics2D) painter;
+		// Do it in reverse to bring 0 up to front z-wise
+		for (int i = beads.length - 1; i >= 0; i--) {
+			painter0.setColor(beadColors[i]);
+			painter0.fill(beads[i]);
+		}
+
+		// Paint the bottom contour
+		painter0.setColor(Color.gray);
+		painter0.draw(bottom);
+
+		// Paint the inversion edges
+		painter0.setColor(Color.blue);
+		for (Map.Entry<Integer, Integer> entry : inversionMappings.entrySet()) {
+			Bead bead1 = beads[entry.getKey()];
+			Bead bead2 = beads[entry.getValue()];
+			painter0.drawLine((int) bead1.cx, (int) bead1.cy, (int) bead2.cx, (int) bead2.cy);
+		}
+
+		// Paint the polygon connecting the beads
+		painter0.setColor(Color.yellow);
+		if (visiblePolygon) {
+			for (int i = 0; i < beads.length - 1; i++) {
+				painter0.drawLine((int) beads[i].cx, (int) beads[i].cy, (int) beads[i + 1].cx, (int) beads[i + 1].cy);
+			}
+			painter0.drawLine((int) beads[beads.length - 1].cx, (int) beads[beads.length - 1].cy, (int) beads[0].cx, (int) beads[0].cy);
+
+		}
+
+		// Paint the circle underlying the beads
+		painter0.setColor(Color.magenta);
+		if (visibleRing) {
+			painter.drawOval(offsetx - radiusLength, offsety - radiusLength, radiusLength * 2, radiusLength * 2);
+		}
+	}
+
+
+	/**
 	 * Positions the beads and repaints the panel
 	 *
 	 * @param angle
@@ -185,9 +228,9 @@ class BeadRing extends JPanel {
 
 		// Compute all points
 		double dotRad = angle;
-		for (Dot dot : dots) {
-			dot.cx = offsetx - radiusLength * Math.sin(dotRad);
-			dot.cy = offsety + radiusLength * Math.cos(dotRad);
+		for (Bead bead : beads) {
+			bead.cx = offsetx - radiusLength * Math.sin(dotRad);
+			bead.cy = offsety + radiusLength * Math.cos(dotRad);
 			dotRad += unitAngle;
 		}
 		repaint();
@@ -232,17 +275,24 @@ class BeadRing extends JPanel {
 		return ((double) term) * Math.PI * 2 / modulus;
 	}
 
-	Map<Integer, Integer> arcs;
 
 	void traceInversions() {
-		for (int i = 2; i < dots.length; i++) {
-			if (LinearCongruence.gcd(i, dots.length) == 1 && !arcs.containsKey(i)) {
-				int inverse = LinearCongruence.fmiclean(i, dots.length, 2);
-				arcs.put(i, inverse);
-				arcs.put(inverse, i);
+		for (int i = 2; i < beads.length; i++) {
+			if (LinearCongruence.gcd(i, beads.length) == 1 && !inversionMappings.containsKey(i)) {
+				int inverse = LinearCongruence.fmiclean(i, beads.length, 2);
+				inversionMappings.put(i, inverse);
+				inversionMappings.put(inverse, i);
 			}
 		}
 		repaint();
+	}
+
+	void tracePolygon() {
+		visiblePolygon = true;
+	}
+
+	void traceRing() {
+		visibleRing = true;
 	}
 
 
@@ -254,7 +304,10 @@ class BeadRing extends JPanel {
 	public static void main(String[] args) {
 		EventQueue.invokeLater(() -> {
 
-			BeadRing canvas = new BeadRing(93);
+			BeadRing canvas = new BeadRing(15);
+
+			canvas.traceRing();
+			canvas.tracePolygon();
 
 			JFrame f = new JFrame("test");
 			f.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);

@@ -37,25 +37,22 @@ import java.awt.geom.Rectangle2D;
  *
  * @author Project2100
  */
-class Dot implements Shape {
+class Bead implements Shape {
 
 	double cx, cy, radius;
 
-	public Dot() {
+	public Bead() {
 		this(0, 0, 1);
 	}
 
-	public Dot(double cx, double cy, double radius) {
+	public Bead(double cx, double cy, double radius) {
 		this.cx = cx;
 		this.cy = cy;
 		this.radius = radius;
 	}
 
-
-
 	@Override
 	public Rectangle getBounds() {
-
 		return new Rectangle((int) Math.floor(cx - radius), (int) Math.floor(cy - radius), (int) Math.floor(radius * 2), (int) Math.floor(radius * 2));
 	}
 
@@ -103,7 +100,5 @@ class Dot implements Shape {
 	public PathIterator getPathIterator(AffineTransform at, double flatness) {
 		return new FlatteningPathIterator(getPathIterator(at), flatness);
 	}
-
-
 
 }
