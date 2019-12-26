@@ -32,9 +32,9 @@ import java.io.PrintStream;
  */
 public class LinearCongruence {
 
-	static class Radix {
+	static class Solution {
 
-		public Radix(int value, int baseMod, int period) {
+		public Solution(int value, int baseMod, int period) {
 			this.baseMod = baseMod;
 			this.value = value;
 			this.period = period;
@@ -69,26 +69,39 @@ public class LinearCongruence {
 	}
 
 	/**
-	 * @brief canonize
-	 * @param term
-	 * @param modulus
-	 * @return
+	 * Returns the canonical section of term according to modulus
+	 *
+	 * @implnote While a simple @code{%} operation would in theory suffice, it doesn't have the desired behaviour around edge-cases, hence the reimplementation
+	 *
+	 * @param term An integer
+	 * @param modulus The modulus
+	 * @return The canonical representative for term in modulus
 	 */
-	static int canonize(int term, int modulus) {
+	static int section(int term, int modulus) {
 		if (modulus <= 0) modulus *= -1;
 		return term - (term / modulus * modulus);
 	}
 
 	/**
-	 * @brief canonize
-	 * @return
-	 * @deprecated The static variant {@link #canonize(int, int)} should be preferred over this one
+	 * Returns a canonical form of this congruence; in detail:
+	 * <li>
+	 *     <ul>
+	 *         It sets the modulus as positive
+	 *     </ul>
+	 *     <ul>
+	 *         It changes both the known term and the coefficient to their respective canonical sections, according to the modulus
+	 *     </ul>
+	 * </li>
+	 * <br\>
+	 *
+	 * If this congruence is already in a canonical form, it returns itself
+	 *
+	 * @return A canonical form of this congruence, or itself if already canonical
 	 */
-	@Deprecated
 	LinearCongruence canonize() {
 		return (coefficient >= 0 && coefficient < modulus && known >= 0 && known < modulus)
 				? this
-				: new LinearCongruence(Math.floorMod(coefficient, modulus), Math.floorMod(known, modulus), modulus);
+				: new LinearCongruence(Math.floorMod(coefficient, modulus), Math.floorMod(known, modulus), Math.abs(modulus));
 	}
 
 	/**
@@ -120,10 +133,12 @@ public class LinearCongruence {
 	 *
 	 * @param a first operand
 	 * @param b second operand
-	 * @return the greatest common divisor of a and b
+	 * @return the greatest common divisor of a and b, or 0 if either one operand is negative or both are zero
 	 */
 
 	static int gcd(int a, int b) {
+
+		// Exclude problematic inputs
 		if (a < 0 || b < 0 || (a == 0 && b == 0)) return 0;
 
 		// Guard being true means we found the gcd
@@ -190,15 +205,15 @@ public class LinearCongruence {
 	 *
 	 *
 	 *
-	 * @param c
+	 * @param congruence
 	 * @param log
 	 * @return
 	 */
-	static Radix solveLinearCongruence(LinearCongruence c, PrintStream log) {
-		log.println("Solving " + c);
+	static Solution solveLinearCongruence(LinearCongruence congruence, PrintStream log) {
+		log.println("Solving " + congruence);
 
-		LinearCongruence reduced = c.canonize();
-		if (c != reduced) {
+		LinearCongruence reduced = congruence.canonize();
+		if (congruence != reduced) {
 			log.println("Simplified as: " + reduced);
 		}
 
@@ -213,21 +228,21 @@ public class LinearCongruence {
 			log.println("Reduced form: " + reduced + ", GCD: " + commondiv);
 		}
 
-		Radix r = new Radix(
+		Solution r = new Solution(
 				(findMultInverse(reduced.coefficient, reduced.modulus) * reduced.known) % reduced.modulus,
 				reduced.modulus,
-				(c.modulus / reduced.modulus));
+				(congruence.modulus / reduced.modulus));
 
 		log.println("Solution: " + r);
 		return r;
 	}
 
 
-	static Radix solveCongruenceSystem(LinearCongruence[] congs, int count, PrintStream log) {
+	static Solution solveCongruenceSystem(LinearCongruence[] congs, int count, PrintStream log) {
 
 		// Solve first
 		log.print("Congruence no.0: ");
-		Radix r = solveLinearCongruence(congs[0], log);
+		Solution r = solveLinearCongruence(congs[0], log);
 		log.println();
 
 		for (int idx = 1; idx < count; idx++) {
@@ -241,7 +256,7 @@ public class LinearCongruence {
 				return null;
 			}
 
-			Radix r2 = solveLinearCongruence(cong, log);
+			Solution r2 = solveLinearCongruence(cong, log);
 			log.println();
 
 			// Find common solution
@@ -285,6 +300,7 @@ public class LinearCongruence {
 	 */
 	static int cbs(int term, int modulus) {
 
+		// Standard involution cases
 		if (term == 1) {
 			System.out.println("Base case (1)");
 			return 1;
@@ -293,6 +309,8 @@ public class LinearCongruence {
 			System.out.println("Base case (n - 1)");
 			return term;
 		}
+
+		// Halving inverses
 		else if (term == 2) {
 			System.out.println("Base case (2), inverse = (n + 1) / 2");
 			return (modulus + 1) / 2;
@@ -301,6 +319,8 @@ public class LinearCongruence {
 			System.out.println("Base case (n - 2), inverse = (n - 1) / 2");
 			return (modulus - 1) / 2;
 		}
+
+		// Getting involved...
 		else if (term == 3) {
 			System.out.println("Base case (3), inverse = (n * (3 - alpha) + 1) / 3");
 			return (modulus * (3 - (modulus % 3)) + 1) / 3;
@@ -309,7 +329,9 @@ public class LinearCongruence {
 			System.out.println("Base case (n - 3), inverse = (n * alpha - 1) / 3");
 			return (modulus * (modulus % 3) - 1) / 3;
 		}
-		// A parity check is needed now!
+
+
+		// A parity check on modulus is needed now!
 //		else if (term == (modulus + 1) / 2 && (modulus & 1) != 0) {
 //			return 2;
 //		}
@@ -331,7 +353,7 @@ public class LinearCongruence {
 	 */
 	static int fmi1(int term, int modulus) {
 		if (modulus == 0) return -1;
-		if (term > modulus) term = canonize(term, modulus);
+		if (term > modulus) term = section(term, modulus);
 
 		int product = 0;
 		int x = 0;
@@ -369,7 +391,7 @@ public class LinearCongruence {
 		System.out.format("--CALL: %d, %d\n", term, modulus);
 		if (modulus == 0 || gcd(term, modulus) != 1) return -1;
 		if (term > modulus) {
-			term = canonize(term, modulus);
+			term = section(term, modulus);
 			System.out.println("term canonized to " + term);
 		}
 
@@ -403,7 +425,7 @@ public class LinearCongruence {
 		System.out.format("--CALL: %d, %d\n", term, modulus);
 		if (modulus == 0 || gcd(term, modulus) != 1) return -1;
 		if (term > modulus) {
-			term = canonize(term, modulus);
+			term = section(term, modulus);
 			System.out.println("term canonized to " + term);
 		}
 
@@ -457,7 +479,7 @@ public class LinearCongruence {
 
 		// can save gcd check and canonization in recursive calls
 		if (modulus == 0 || gcd(term, modulus) != 1) return -1;
-		if (term > modulus) term = canonize(term, modulus);
+		if (term > modulus) term = section(term, modulus);
 
 		switch (mode) {
 			case 1:

@@ -28,6 +28,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.EventQueue;
+import java.awt.event.ActionEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.io.ByteArrayOutputStream;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.AbstractAction;
 import javax.swing.GroupLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -44,6 +46,7 @@ import javax.swing.JList;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTextPane;
+import javax.swing.JToolBar;
 import javax.swing.LayoutStyle;
 import javax.swing.ListCellRenderer;
 import javax.swing.SpinnerNumberModel;
@@ -58,7 +61,7 @@ import javax.swing.WindowConstants;
  */
 public class Main {
 
-	private static LinearCongruence.Radix radix = null;
+	private static LinearCongruence.Solution solution = null;
 
 	public static void main(String[] args) {
 		EventQueue.invokeLater(() -> {
@@ -151,44 +154,55 @@ public class Main {
 					BeadRing pane = new BeadRing(eqn.modulus);
 					rings.add(pane);
 				}
-				rings.add(new BeadRing(radix.baseMod));
+				rings.add(new BeadRing(solution.baseMod));
 
-				JButton setButton = new JButton("Reset");
-				setButton.addActionListener((evt) -> {
-					for (BeadRing ring : rings) {
-						ring.positionDots(BeadRing.computeRadians(0, ring.beads.length));
-						ring.currentAngle = BeadRing.computeRadians(0, ring.beads.length);
+				JToolBar toolbar = new JToolBar();
+				toolbar.setFloatable(false);
+
+				// Reset
+				toolbar.add(new AbstractAction("Reset") {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						for (BeadRing ring : rings) {
+							ring.positionDots(BeadRing.computeRadians(0, ring.beads.length));
+							ring.currentAngle = BeadRing.computeRadians(0, ring.beads.length);
+						}
 					}
 				});
 
-				JButton solveButton = new JButton("Solve");
-				solveButton.addActionListener((evt) -> {
-					for (int i = 0; i < rings.size(); i++) {
-						BeadRing ring = rings.get(i);
-						ring.animateRotation(-BeadRing.computeRadians(radix.value * (i != rings.size() - 1 ? eqns.get(i).coefficient : 1), ring.beads.length), 12000, BeadRing.RotationMode.SINE);
+				// Solve
+				toolbar.add(new AbstractAction("Solve") {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						for (int i = 0; i < rings.size(); i++) {
+							BeadRing ring = rings.get(i);
+							ring.animateRotation(-BeadRing.computeRadians(solution.value * (i != rings.size() - 1 ? eqns.get(i).coefficient : 1), ring.beads.length), 12000, BeadRing.RotationMode.SINE);
+						}
 					}
 				});
 
-				JButton normalizeButton = new JButton("Normalize");
-				normalizeButton.addActionListener((evt) -> {
-					//for (int i = 0; i < eqns.size(); i++) {
+				// Normalize
+				toolbar.add(new AbstractAction("Normalize") {
+					@Override
+					public void actionPerformed(ActionEvent e) {
 						eqns.replaceAll((c) -> c.coefficient == 1 ? c : new LinearCongruence(1, c.known * LinearCongruence.findMultInverse(c.coefficient, c.modulus), c.modulus));
-					//}
+					}
 				});
 
-
+				// Animation panel layout
 				GroupLayout l = new GroupLayout(ringFrame.getContentPane());
 				ringFrame.getContentPane().setLayout(l);
 				GroupLayout.ParallelGroup v = l.createParallelGroup();
 				GroupLayout.SequentialGroup h = l.createSequentialGroup();
+
+				// Since the number of rings may vary, create the groups before laying out the whole window
 				for (BeadRing ring : rings) {
 					v = v.addComponent(ring);
 					h = h.addComponent(ring);
 				}
 
-
-				l.setHorizontalGroup(l.createParallelGroup().addGroup(h).addGroup(l.createSequentialGroup().addComponent(setButton).addComponent(solveButton).addComponent(normalizeButton)));
-				l.setVerticalGroup(l.createSequentialGroup().addGroup(v).addGroup(l.createParallelGroup().addComponent(setButton).addComponent(solveButton).addComponent(normalizeButton)));
+				l.setHorizontalGroup(l.createParallelGroup().addComponent(toolbar).addGroup(h));
+				l.setVerticalGroup(l.createSequentialGroup().addComponent(toolbar).addGroup(v));
 
 				ringFrame.pack();
 				ringFrame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -211,7 +225,7 @@ public class Main {
 
 					rings.add(pane);
 				}
-				rings.add(new BeadRing(radix.baseMod, new Color(0, 0, 0, 0), 15));
+				rings.add(new BeadRing(solution.baseMod, new Color(0, 0, 0, 0), 15));
 
 				JButton setButton = new JButton("Reset");
 				setButton.addActionListener((evt) -> {
@@ -225,7 +239,7 @@ public class Main {
 				solveButton.addActionListener((evt) -> {
 					for (int i = 0; i < rings.size(); i++) {
 						BeadRing ring = rings.get(i);
-						ring.animateRotation(-BeadRing.computeRadians(radix.value * (i != rings.size() - 1 ? eqns.get(i).coefficient : 1), ring.beads.length), 30000, BeadRing.RotationMode.SINE);
+						ring.animateRotation(-BeadRing.computeRadians(solution.value * (i != rings.size() - 1 ? eqns.get(i).coefficient : 1), ring.beads.length), 30000, BeadRing.RotationMode.SINE);
 					}
 				});
 
@@ -262,9 +276,9 @@ public class Main {
 			computeButton.addActionListener((event) -> {
 				ByteArrayOutputStream log = new ByteArrayOutputStream(255);
 				try (PrintStream ps = new PrintStream(log)) {
-					radix = LinearCongruence.solveCongruenceSystem(systemModel.getElementList().toArray(new LinearCongruence[systemModel.getSize()]), systemModel.getSize(), ps);
+					solution = LinearCongruence.solveCongruenceSystem(systemModel.getElementList().toArray(new LinearCongruence[systemModel.getSize()]), systemModel.getSize(), ps);
 				}
-				animateButton.setEnabled(radix != null);
+				animateButton.setEnabled(solution != null);
 				computeLog.setText(log.toString());
 			});
 
